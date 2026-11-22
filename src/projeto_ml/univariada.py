@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from IPython.display import display
 
+import warnings
+warnings.filterwarnings('ignore')
+
 class Exploratoria:
     def __init__(self, df: pd.DataFrame):
         self.df = df

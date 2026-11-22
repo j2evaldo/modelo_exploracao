@@ -616,6 +616,22 @@ wheels = [
 ]
 
 [[package]]
+name = "feature-engine"
+version = "1.9.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "statsmodels" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2b/9d/802c7c4a3f1b8a988e7370b377f426eba7e5ed51a42019973a8063ea5532/feature_engine-1.9.4.tar.gz", hash = "sha256:4ee817b9a557f9670636deb417689645e54fc2391c2f14fbe0ef4f185fd1ab17", size = 150914, upload-time = "2026-02-27T13:47:20.883Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/92/698f823c1e0a4affe75d8dc6685639b82c65241bdda1f04f6a69fd162119/feature_engine-1.9.4-py3-none-any.whl", hash = "sha256:a1181dcb25fc906cc74dd4f2947c49a71012a727d30a4505f2418419c83ace9e", size = 243548, upload-time = "2026-02-27T13:47:19.457Z" },
+]
+
+[[package]]
 name = "fonttools"
 version = "4.68.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1885,6 +1901,7 @@ source = { editable = "." }
 dependencies = [
     { name = "arfs" },
     { name = "catboost" },
+    { name = "feature-engine" },
     { name = "jupyter" },
     { name = "pandas" },
     { name = "pyarrow" },
@@ -1896,6 +1913,7 @@ dependencies = [
 requires-dist = [
     { name = "arfs", specifier = ">=3.0.0" },
     { name = "catboost", specifier = ">=1.2.10" },
+    { name = "feature-engine", specifier = ">=1.9.4" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "pandas", specifier = ">=3.1.1" },
     { name = "pyarrow", specifier = ">=26.0.1" },

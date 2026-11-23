@@ -19,24 +19,25 @@ from sklearn.metrics import (
 )
 
 class AvaliacaoModelo:
-    def __init__(self, modelo, X_train, y_train, X_test, y_test, nome_modelo: str = "Modelo"):
+    def __init__(self, modelo, X_train, y_train, X_holdout, y_holdout, nome_modelo: str = "Modelo"):
         self.modelo = modelo
         self.X_train = X_train
         self.y_train = y_train
-        self.X_test = X_test
-        self.y_test = y_test
+        self.X_holdout = X_holdout
+        self.y_holdout = y_holdout
         self.nome_modelo = nome_modelo
         
-        # Fazendo as predições
+        # Fazendo as predições de Treino
         self.y_pred_train = modelo.predict(X_train)
         self.y_prob_train = modelo.predict_proba(X_train)[:, 1]
         
-        self.y_pred_test = modelo.predict(X_test)
-        self.y_prob_test = modelo.predict_proba(X_test)[:, 1]
+        # Fazendo as predições de Holdout (Teste Final)
+        self.y_pred_holdout = modelo.predict(X_holdout)
+        self.y_prob_holdout = modelo.predict_proba(X_holdout)[:, 1]
 
     def calcular_metricas(self) -> pd.DataFrame:
         """
-        Calcula as métricas de Treino e Teste e gera uma tabela comparativa (Gap).
+        Calcula as métricas de Treino e Holdout e gera uma tabela comparativa (Gap).
         """
         metricas = {
             'Métrica': ['ROC-AUC', 'PR-AUC', 'Logloss', 'F1-Score (Churn)', 'Precision (Churn)', 'Recall (Churn)', 'Acurácia'],
@@ -49,23 +50,23 @@ class AvaliacaoModelo:
                 recall_score(self.y_train, self.y_pred_train),
                 accuracy_score(self.y_train, self.y_pred_train)
             ],
-            'Teste': [
-                roc_auc_score(self.y_test, self.y_prob_test),
-                auc(*precision_recall_curve(self.y_test, self.y_prob_test)[1::-1]),
-                log_loss(self.y_test, self.y_prob_test),
-                f1_score(self.y_test, self.y_pred_test),
-                precision_score(self.y_test, self.y_pred_test),
-                recall_score(self.y_test, self.y_pred_test),
-                accuracy_score(self.y_test, self.y_pred_test)
+            'Holdout (Teste)': [
+                roc_auc_score(self.y_holdout, self.y_prob_holdout),
+                auc(*precision_recall_curve(self.y_holdout, self.y_prob_holdout)[1::-1]),
+                log_loss(self.y_holdout, self.y_prob_holdout),
+                f1_score(self.y_holdout, self.y_pred_holdout),
+                precision_score(self.y_holdout, self.y_pred_holdout),
+                recall_score(self.y_holdout, self.y_pred_holdout),
+                accuracy_score(self.y_holdout, self.y_pred_holdout)
             ]
         }
         
         df_metricas = pd.DataFrame(metricas)
         # Adicionando a coluna de Gap (diferença)
-        df_metricas['Gap (Treino - Teste)'] = df_metricas['Treino'] - df_metricas['Teste']
+        df_metricas['Gap (Treino - Holdout)'] = df_metricas['Treino'] - df_metricas['Holdout (Teste)']
         
         print(f"{'='*60}")
-        print(f"Métricas de Avaliação: {self.nome_modelo}")
+        print(f"Métricas de Avaliação (Holdout Final): {self.nome_modelo}")
         print(f"{'='*60}")
         display(df_metricas.round(4))
         
@@ -73,17 +74,17 @@ class AvaliacaoModelo:
 
     def plotar_curva_roc(self) -> None:
         """
-        Plota a Curva ROC comparando Treino e Teste.
+        Plota a Curva ROC comparando Treino e Holdout.
         """
         fpr_train, tpr_train, _ = roc_curve(self.y_train, self.y_prob_train)
-        fpr_test, tpr_test, _ = roc_curve(self.y_test, self.y_prob_test)
+        fpr_test, tpr_test, _ = roc_curve(self.y_holdout, self.y_prob_holdout)
         
         auc_train = roc_auc_score(self.y_train, self.y_prob_train)
-        auc_test = roc_auc_score(self.y_test, self.y_prob_test)
+        auc_test = roc_auc_score(self.y_holdout, self.y_prob_holdout)
         
         plt.figure(figsize=(8, 6))
         plt.plot(fpr_train, tpr_train, label=f'Treino (AUC = {auc_train:.3f})', color='blue', linestyle='--')
-        plt.plot(fpr_test, tpr_test, label=f'Teste (AUC = {auc_test:.3f})', color='darkred', linewidth=2)
+        plt.plot(fpr_test, tpr_test, label=f'Holdout (AUC = {auc_test:.3f})', color='darkred', linewidth=2)
         plt.plot([0, 1], [0, 1], 'k:', label='Chute Aleatório (AUC = 0.500)')
         
         plt.title(f'Curva ROC - {self.nome_modelo}', fontsize=14)
@@ -99,8 +100,8 @@ class AvaliacaoModelo:
         Plota o Lift Chart (Curva de Ganho Acumulado).
         Mostra quantas vezes o modelo é melhor que escolher clientes aleatoriamente.
         """
-        # Criando DataFrame de ordenação
-        df_lift = pd.DataFrame({'y_true': self.y_test, 'y_prob': self.y_prob_test})
+        # Criando DataFrame de ordenação (Usa o HOLDOUT!)
+        df_lift = pd.DataFrame({'y_true': self.y_holdout, 'y_prob': self.y_prob_holdout})
         df_lift = df_lift.sort_values(by='y_prob', ascending=False).reset_index(drop=True)
         
         # Calculando as métricas acumuladas
@@ -128,7 +129,7 @@ class AvaliacaoModelo:
             ax.scatter(pct, lift_val, color='darkred', s=100, zorder=5)
             ax.annotate(f'Lift {lift_val:.2f}x', (pct, lift_val), textcoords="offset points", xytext=(0,10), ha='center', color='darkred', fontweight='bold')
             
-        ax.set_title(f'Curva de Lift (Ganho Acumulado) - {self.nome_modelo}', fontsize=14)
+        ax.set_title(f'Curva de Lift (Ganho Acumulado) - {self.nome_modelo} (Holdout)', fontsize=14)
         ax.set_xlabel('Percentual da População (Ordenada por Risco)')
         ax.set_ylabel('Lift (Vezes melhor que o aleatório)')
         ax.set_xlim(0, 1)
@@ -140,14 +141,14 @@ class AvaliacaoModelo:
 
     def plotar_matriz_confusao(self) -> None:
         """
-        Plota a matriz de confusão do conjunto de teste.
+        Plota a matriz de confusão do conjunto de Holdout.
         """
-        cm = confusion_matrix(self.y_test, self.y_pred_test)
+        cm = confusion_matrix(self.y_holdout, self.y_pred_holdout)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Ficou (0)', 'Churn (1)'])
         
         fig, ax = plt.subplots(figsize=(6, 6))
         disp.plot(ax=ax, cmap='Blues', values_format='d')
-        ax.set_title(f'Matriz de Confusão (Teste) - {self.nome_modelo}', fontsize=14)
+        ax.set_title(f'Matriz de Confusão (Holdout) - {self.nome_modelo}', fontsize=14)
         plt.tight_layout()
         plt.show()
 

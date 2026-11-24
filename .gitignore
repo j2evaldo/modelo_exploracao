@@ -8,3 +8,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+# MLflow local store
+/mlflow.db
+/mlruns/
+/mlartifacts/
+notebooks/mlflow.db
+notebooks/mlruns/

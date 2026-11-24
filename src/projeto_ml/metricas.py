@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from IPython.display import display
 
+sns.set()
+
 from sklearn.metrics import (
     roc_auc_score, 
     roc_curve, 
@@ -62,7 +64,6 @@ class AvaliacaoModelo:
         }
         
         df_metricas = pd.DataFrame(metricas)
-        # Adicionando a coluna de Gap (diferença)
         df_metricas['Gap (Treino - Holdout)'] = df_metricas['Treino'] - df_metricas['Holdout (Teste)']
         
         print(f"{'='*60}")
@@ -72,9 +73,9 @@ class AvaliacaoModelo:
         
         return df_metricas
 
-    def plotar_curva_roc(self) -> None:
+    def plotar_curva_roc(self):
         """
-        Plota a Curva ROC comparando Treino e Holdout.
+        Plota a Curva ROC. Retorna a figura para o MLflow.
         """
         fpr_train, tpr_train, _ = roc_curve(self.y_train, self.y_prob_train)
         fpr_test, tpr_test, _ = roc_curve(self.y_holdout, self.y_prob_holdout)
@@ -82,66 +83,69 @@ class AvaliacaoModelo:
         auc_train = roc_auc_score(self.y_train, self.y_prob_train)
         auc_test = roc_auc_score(self.y_holdout, self.y_prob_holdout)
         
-        plt.figure(figsize=(8, 6))
-        plt.plot(fpr_train, tpr_train, label=f'Treino (AUC = {auc_train:.3f})', color='blue', linestyle='--')
-        plt.plot(fpr_test, tpr_test, label=f'Holdout (AUC = {auc_test:.3f})', color='darkred', linewidth=2)
-        plt.plot([0, 1], [0, 1], 'k:', label='Chute Aleatório (AUC = 0.500)')
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(fpr_train, tpr_train, label=f'Treino (AUC = {auc_train:.3f})', color='blue', linestyle='--')
+        ax.plot(fpr_test, tpr_test, label=f'Holdout (AUC = {auc_test:.3f})', color='darkred', linewidth=2)
+        ax.plot([0, 1], [0, 1], 'k:', label='Chute Aleatório (AUC = 0.500)')
         
-        plt.title(f'Curva ROC - {self.nome_modelo}', fontsize=14)
-        plt.xlabel('Taxa de Falso Positivo (FPR)')
-        plt.ylabel('Taxa de Verdadeiro Positivo (TPR)')
-        plt.legend(loc='lower right')
-        plt.grid(alpha=0.3)
-        plt.tight_layout()
-        plt.show()
-
-    def plotar_curva_lift(self, n_bins: int = 10) -> None:
-        """
-        Plota o Lift Chart (Curva de Ganho Acumulado).
-        Mostra quantas vezes o modelo é melhor que escolher clientes aleatoriamente.
-        """
-        # Criando DataFrame de ordenação (Usa o HOLDOUT!)
-        df_lift = pd.DataFrame({'y_true': self.y_holdout, 'y_prob': self.y_prob_holdout})
-        df_lift = df_lift.sort_values(by='y_prob', ascending=False).reset_index(drop=True)
-        
-        # Calculando as métricas acumuladas
-        df_lift['random_prob'] = df_lift['y_true'].mean()
-        df_lift['cumulative_churn'] = df_lift['y_true'].cumsum()
-        df_lift['population_pct'] = (df_lift.index + 1) / len(df_lift)
-        
-        # Lift = (Churn acumulado / Total de churns) / População testada
-        total_churns = df_lift['y_true'].sum()
-        df_lift['lift'] = (df_lift['cumulative_churn'] / total_churns) / df_lift['population_pct']
-        
-        # Plotando
-        fig, ax = plt.subplots(figsize=(10, 6))
-        
-        # Plotando a linha de base aleatória (Lift = 1)
-        ax.plot([0, 1], [1, 1], 'k--', label='Aleatório (Lift = 1)')
-        
-        # Plotando o Lift do modelo
-        ax.plot(df_lift['population_pct'], df_lift['lift'], color='darkblue', linewidth=2, label='Modelo')
-        
-        # Adicionando marcadores para 10%, 20% e 30% da população
-        for pct in [0.1, 0.2, 0.3]:
-            idx = int(len(df_lift) * pct) - 1
-            lift_val = df_lift.loc[idx, 'lift']
-            ax.scatter(pct, lift_val, color='darkred', s=100, zorder=5)
-            ax.annotate(f'Lift {lift_val:.2f}x', (pct, lift_val), textcoords="offset points", xytext=(0,10), ha='center', color='darkred', fontweight='bold')
-            
-        ax.set_title(f'Curva de Lift (Ganho Acumulado) - {self.nome_modelo} (Holdout)', fontsize=14)
-        ax.set_xlabel('Percentual da População (Ordenada por Risco)')
-        ax.set_ylabel('Lift (Vezes melhor que o aleatório)')
-        ax.set_xlim(0, 1)
-        ax.legend(loc='upper right')
+        ax.set_title(f'Curva ROC - {self.nome_modelo}', fontsize=14)
+        ax.set_xlabel('Taxa de Falso Positivo (FPR)')
+        ax.set_ylabel('Taxa de Verdadeiro Positivo (TPR)')
+        ax.legend(loc='lower right')
         ax.grid(alpha=0.3)
         
         plt.tight_layout()
-        plt.show()
+        plt.close(fig)
+        return fig
 
-    def plotar_matriz_confusao(self) -> None:
+    def plotar_curva_lift(self):
         """
-        Plota a matriz de confusão do conjunto de Holdout.
+        Plota a Curva de Lift (Ganho Acumulado). Retorna a figura para o MLflow.
+        """
+        df_lift = pd.DataFrame({'y_true': self.y_holdout, 'y_prob': self.y_prob_holdout})
+        df_lift = df_lift.sort_values(by='y_prob', ascending=False).reset_index(drop=True)
+        
+        df_lift['cumulative_churn'] = df_lift['y_true'].cumsum()
+        df_lift['population_pct'] = (df_lift.index + 1) / len(df_lift)
+        
+        total_churns = df_lift['y_true'].sum()
+        df_lift['cumulative_gain'] = df_lift['cumulative_churn'] / total_churns
+        df_lift['lift'] = df_lift['cumulative_gain'] / df_lift['population_pct']
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        ax.plot([0, 1], [0, 1], 'k--', label='Aleatório (Lift = 1)')
+        ax.plot(df_lift['population_pct'], df_lift['cumulative_gain'], color='darkblue', linewidth=2, label='Modelo (Ganho Acumulado)')
+        
+        for pct in [0.1, 0.2, 0.3]:
+            idx = int(len(df_lift) * pct) - 1
+            gain_val = df_lift.loc[idx, 'cumulative_gain']
+            lift_val = df_lift.loc[idx, 'lift']
+            
+            ax.scatter(pct, gain_val, color='darkred', s=100, zorder=5)
+            ax.annotate(f'{gain_val*100:.1f}% capturado\n(Lift {lift_val:.2f}x)', 
+                        (pct, gain_val), 
+                        textcoords="offset points", 
+                        xytext=(0,10), 
+                        ha='center', 
+                        color='darkred', 
+                        fontweight='bold')
+            
+        ax.set_title(f'Curva de Lift (Ganho Acumulado) - {self.nome_modelo} (Holdout)', fontsize=14)
+        ax.set_xlabel('Percentual da População (Ordenada por Risco)')
+        ax.set_ylabel('Percentual de Churns Capturados')
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.legend(loc='lower right')
+        ax.grid(alpha=0.3)
+        
+        plt.tight_layout()
+        plt.close(fig)
+        return fig
+
+    def plotar_matriz_confusao(self):
+        """
+        Plota a matriz de confusão. Retorna a figura para o MLflow.
         """
         cm = confusion_matrix(self.y_holdout, self.y_pred_holdout)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Ficou (0)', 'Churn (1)'])
@@ -149,14 +153,62 @@ class AvaliacaoModelo:
         fig, ax = plt.subplots(figsize=(6, 6))
         disp.plot(ax=ax, cmap='Blues', values_format='d')
         ax.set_title(f'Matriz de Confusão (Holdout) - {self.nome_modelo}', fontsize=14)
+        
         plt.tight_layout()
-        plt.show()
+        plt.close(fig)
+        return fig
 
-    def gerar_relatorio(self) -> None:
+    def plotar_feature_importance(self, top_n: int = 15, usar_shap: bool = False):
         """
-        Roda tudo de uma vez.
+        Plota a importância das features. Retorna a figura para o MLflow.
+        """
+        if usar_shap:
+            if hasattr(self.modelo, 'get_feature_importance'):
+                shap_values = self.modelo.get_feature_importance(type='ShapValues', data=self.X_holdout)
+                importances = np.abs(shap_values[:, :-1]).mean(axis=0)
+            else:
+                raise ValueError("O modelo não suporta SHAP nativo. Use usar_shap=False.")
+        else:
+            if hasattr(self.modelo, 'get_feature_importance'):
+                importances = self.modelo.get_feature_importance()
+            elif hasattr(self.modelo, 'feature_importances_'):
+                importances = self.modelo.feature_importances_
+            else:
+                raise ValueError("O modelo não possui atributo de importância de features.")
+
+        df_importance = pd.DataFrame({
+            'Feature': self.X_train.columns,
+            'Importance': importances
+        }).sort_values(by='Importance', ascending=False).head(top_n)
+
+        fig, ax = plt.subplots(figsize=(10, max(6, top_n * 0.4)))
+        
+        sns.barplot(
+            data=df_importance, 
+            x='Importance', 
+            y='Feature', 
+            palette='viridis',
+            hue='Feature',
+            legend=False,
+            ax=ax
+        )
+        
+        metodo = "SHAP" if usar_shap else "Nativa"
+        ax.set_title(f'Feature Importance ({metodo}) - {self.nome_modelo}', fontsize=14)
+        ax.set_xlabel('Importância')
+        ax.set_ylabel('Feature')
+        
+        plt.tight_layout()
+        plt.close(fig)
+        return fig
+
+    def gerar_relatorio(self):
+        """
+        Roda tudo de uma vez exibindo cada figura uma única vez.
         """
         self.calcular_metricas()
-        self.plotar_curva_roc()
-        self.plotar_curva_lift()
-        self.plotar_matriz_confusao()
+
+        display(self.plotar_curva_roc())
+        display(self.plotar_curva_lift())
+        display(self.plotar_matriz_confusao())
+        display(self.plotar_feature_importance())
